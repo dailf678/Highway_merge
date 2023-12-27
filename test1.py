@@ -47,7 +47,7 @@ if __name__ == "__main__":
     # )
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(5e3))
+        model.learn(total_timesteps=int(2e3))
         model.save("highway_dqn/model")
         del model
 

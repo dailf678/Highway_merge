@@ -20,16 +20,18 @@ if __name__ == "__main__":
         env=env,
         lr=5e-4,
         gamma=0.99,
-        epsilon=0.9,
+        epsilon=0.05,
         MEMORY_CAPACITY=15000,
         state_dim=25,
         action_dim=5,
         targe_update_f=50,
         batch_size=32,
+        dqn_type="DDQN",
+        learning_starts=200,
     )
-    path = "D:\python\HighwayEnv\save_models\\DQN.pkl"
+    path = "D:\python\Highway_merge\save_models\\DQN.pkl"
     if TRAIN:
-        model.learn(total_timesteps=int(5e3))
+        model.learn(total_timesteps=int(2e4))
         model.save(path)
         # del model
 

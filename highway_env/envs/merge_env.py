@@ -41,7 +41,7 @@ class MergeEnv(AbstractEnv):
                 "reward_speed_range": [20, 30],
                 # "staright_speed_reward": -0.2,
                 "staright_speed_reward": 0.2,
-                "distance_reward": 0,
+                "distance_reward": 0.0,
             }
         )
         return cfg
@@ -62,11 +62,10 @@ class MergeEnv(AbstractEnv):
         return utils.lmap(
             reward,
             [
-                self.config["collision_reward"],
+                self.config["collision_reward"] + self.config["distance_reward"],
                 self.config["high_speed_reward"]
                 + self.config["lane_change_reward"]
-                + self.config["staright_speed_reward"]
-                + self.config["distance_reward"],
+                + self.config["staright_speed_reward"],
             ],
             [0, 1],
         )
@@ -77,30 +76,16 @@ class MergeEnv(AbstractEnv):
             self.vehicle.speed, self.config["reward_speed_range"], [0, 1]
         )
         distance_reward = 0
-        speed_reward = 0
-        if self.vehicle.lane_index == ("b", "c", 1):
-            front_distance = 1000
-            front_speed = 0
-            back_distance = -1000
-            back_speed = 0
-            for vehicle in self.road.vehicles:
+        for vehicle in self.road.vehicles:
+            if vehicle.lane_index == ("b", "c", 1) and isinstance(
+                vehicle, ControlledVehicle
+            ):
                 x_position = vehicle.position[0]
                 ego_x_position = self.vehicle.position[0]
-                distance = x_position - ego_x_position
-                if distance > 0:
-                    if distance < front_distance:
-                        front_distance = distance
-                        front_speed = abs(self.vehicle.speed - vehicle.speed)
-                if distance < 0:
-                    if distance > back_distance:
-                        back_distance = distance
-                        back_speed = abs(self.vehicle.speed - vehicle.speed)
-            distance_reward = utils.lmap(front_distance, [0, 80], [0, 1]) + utils.lmap(
-                back_distance, [-80, 0], [1, 0]
-            )
-            speed_reward = utils.lmap(front_speed, [0, 20], [1, 0]) + utils.lmap(
-                back_speed, [0, 20], [1, 0]
-            )
+                if abs(x_position - ego_x_position) < 5 and self.vehicle.lane_index == (
+                    ("b", "c", 1)
+                ):
+                    distance_reward += 1
         high_speed_flag = 1
         lane_change_flag = 1
         scaled_x_position = utils.lmap(
