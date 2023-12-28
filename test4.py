@@ -26,12 +26,13 @@ if __name__ == "__main__":
         action_dim=5,
         targe_update_f=50,
         batch_size=32,
-        dqn_type="DDQN",
-        learning_starts=200,
+        dqn_type="DQN",
+        learning_starts=100,
+        memory_type="PER",
     )
     path = "D:\python\Highway_merge\save_models\\DQN.pkl"
     if TRAIN:
-        model.learn(total_timesteps=int(2e4))
+        model.learn(total_timesteps=int(1e4))
         model.save(path)
         # del model
 
@@ -59,6 +60,8 @@ if __name__ == "__main__":
             # Render
             env.render()
             episode_rewards += reward
+        print("done", done)
+        print("truncated", truncated)
         return_list.append(episode_rewards)
         episode_rewards = 0
 
