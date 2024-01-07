@@ -2,9 +2,15 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
+import sys
 
-import highway_env  # noqa: F401
+sys.path.append("D:\python\Highway_merge")
+import highway_env
 
+highway_env.register_highway_envs()
+
+
+# 添加文件路径
 # ==================================
 #        Main script
 # ==================================

@@ -8,8 +8,8 @@ from pathlib import Path
 
 highway_env.register_highway_envs()
 
-TRAIN = True
-# TRAIN = False
+# TRAIN = True
+TRAIN = False
 if __name__ == "__main__":
     # Create the environment
     env = gym.make("merge-v0", render_mode="rgb_array")
@@ -44,16 +44,18 @@ if __name__ == "__main__":
     env.unwrapped.set_record_video_wrapper(env)
     # env.configure({"simulation_frequency": 15})  # Higher FPS for rendering
     # simulation_frequency越大越慢
-    env.configure({"simulation_frequency": 120})  # Higher FPS for rendering
+    env.configure({"simulation_frequency": 15})  # Higher FPS for rendering
     episode_rewards = 0
     return_list = []
     for videos in range(10):
         done = truncated = False
         obs, info = env.reset()
         _last_obs = obs.flatten()
+        index = 1
         while not (done or truncated):
             # Predict
-            action = model.choose_action(_last_obs)
+            action = model.choose_action(_last_obs, index)
+            index += 1
             # Get reward
             obs, reward, done, truncated, info = env.step(action)
             _last_obs = obs.flatten()

@@ -192,7 +192,7 @@ class DQN(object):
         self.logger = get_logger(logger_file)
         self.episode_num = 0
 
-    def choose_action(self, s):
+    def choose_action(self, s, index):
         x = torch.FloatTensor(s)
         if np.random.uniform() < 1 - self.exploration_rate:
             action = self.net.forward(x)

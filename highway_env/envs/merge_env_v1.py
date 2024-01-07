@@ -10,7 +10,7 @@ from highway_env.vehicle.controller import ControlledVehicle
 from highway_env.vehicle.objects import Obstacle
 
 
-class MergeEnv(AbstractEnv):
+class MergeEnv_v1(AbstractEnv):
 
     """
     A highway merge negotiation environment.
@@ -23,25 +23,25 @@ class MergeEnv(AbstractEnv):
     @classmethod
     def default_config(cls) -> dict:
         cfg = super().default_config()
-        # cfg.update(
-        #     {
-        #         "collision_reward": -1,
-        #         "right_lane_reward": 0.1,
-        #         "high_speed_reward": 0.2,
-        #         "reward_speed_range": [20, 30],
-        #         "merging_speed_reward": -0.5,
-        #         "lane_change_reward": -0.05,
-        #     }
-        # )
         cfg.update(
             {
+                "action": {
+                    "type": "ContinuousAction",
+                    "longitudinal": False,
+                    "lateral": True,
+                    "target_speeds": [0, 5, 10],
+                },
+                "simulation_frequency": 15,
+                "policy_frequency": 5,
                 "collision_reward": -1,
                 "high_speed_reward": 0.2,
                 "lane_change_reward": 1,
                 "reward_speed_range": [20, 30],
-                # "staright_speed_reward": -0.2,
                 "staright_speed_reward": 0.2,
                 "distance_reward": 0.0,
+                "lane_centering_cost": 4,  #
+                "lane_centering_reward": 0.8,
+                "action_reward": -0.3,
             }
         )
         return cfg
@@ -55,66 +55,109 @@ class MergeEnv(AbstractEnv):
         :param action: the action performed
         :return: the reward of the state-action transition
         """
+        rewards = self._rewards(action)
         reward = sum(
-            self.config.get(name, 0) * reward
-            for name, reward in self._rewards(action).items()
+            self.config.get(name, 0) * reward for name, reward in rewards.items()
         )
-        return utils.lmap(
+        if self.vehicle.lane_index == (("b", "c", 2)):
+            reward = (
+                reward
+                + 2 * (self.config["action_reward"] * -1) * rewards["action_reward"]
+                - (
+                    self.config["lane_centering_reward"]
+                    * rewards["lane_centering_reward"]
+                )
+            )
             reward,
             [
-                self.config["collision_reward"] + self.config["distance_reward"],
-                self.config["high_speed_reward"]
-                + self.config["lane_change_reward"]
-                + self.config["staright_speed_reward"],
+                self.config["collision_reward"],
+                +self.config["staright_speed_reward"]
+                + self.config["action_reward"] * -1,
             ],
             [0, 1],
-        )
+        elif (
+            self.vehicle.lane_index == (("b", "c", 1))
+            and self.vehicle.position[0] > 230 + 10
+        ):
+            reward = (
+                reward
+                + 2 * (self.config["action_reward"] * -1) * rewards["action_reward"]
+            )
+            reward,
+            [
+                self.config["collision_reward"],
+                self.config["lane_centering_reward"]
+                + self.config["lane_change_reward"]
+                + self.config["staright_speed_reward"]
+                + self.config["action_reward"] * -1,
+            ],
+            [0, 1],
+        elif (
+            self.vehicle.lane_index == (("b", "c", 1))
+            and self.vehicle.position[0] < 230 + 10
+        ):
+            reward = (
+                reward
+                + 2 * (self.config["action_reward"] * -1) * rewards["action_reward"]
+                - (
+                    self.config["lane_centering_reward"]
+                    * rewards["lane_centering_reward"]
+                )
+            )
+            reward,
+            [
+                self.config["collision_reward"],
+                self.config["lane_centering_reward"]
+                + self.config["staright_speed_reward"]
+                + self.config["action_reward"] * -1,
+            ],
+            [0, 1],
+        else:
+            reward = utils.lmap(
+                reward,
+                [
+                    self.config["collision_reward"] + self.config["action_reward"],
+                    self.config["lane_centering_reward"],
+                ],
+                [0, 1],
+            )
+        reward *= rewards["on_road_reward"]
+        # print(reward)
+        return reward
 
     def _rewards(self, action: int) -> Dict[Text, float]:
-        # 将速度映射到[0,1]之间
-        scaled_speed = utils.lmap(
-            self.vehicle.speed, self.config["reward_speed_range"], [0, 1]
-        )
-        distance_reward = 0
-        for vehicle in self.road.vehicles:
-            if vehicle.lane_index == ("b", "c", 1) and isinstance(
-                vehicle, ControlledVehicle
-            ):
-                x_position = vehicle.position[0]
-                ego_x_position = self.vehicle.position[0]
-                if abs(x_position - ego_x_position) < 5 and self.vehicle.lane_index == (
-                    ("b", "c", 1)
-                ):
-                    distance_reward += 1
-        high_speed_flag = 1
-        lane_change_flag = 1
+        _, lateral = self.vehicle.lane.local_coordinates(self.vehicle.position)
+        # 换道奖励
         scaled_x_position = utils.lmap(
             80 - (self.vehicle.position[0] - 230), [0, 80], [0, 1]
         )
         if (
-            self.vehicle.lane_index == ("b", "c", 0)
-            or self.vehicle.lane_index == ("b", "c", 1)
-            or self.vehicle.lane_index == ("b", "c", 2)
+            self.vehicle.lane_index == (("b", "c", 1))
+            and self.vehicle.position[0] > 230 + 10
         ):
-            high_speed_flag = -1
-        if self.vehicle.lane_index == ("b", "c", 0) or self.vehicle.lane_index == (
-            "b",
-            "c",
-            1,
-        ):
+            lane_change_flag = 1
+        else:
             lane_change_flag = 0
-
+        if self.vehicle.lane_index != self.delay_lane:
+            lane_change_reward = 1
+        else:
+            lane_change_reward = 0
+        self.delay_lane = self.vehicle.lane_index
         return {
+            "lane_centering_reward": 1
+            / (1 + self.config["lane_centering_cost"] * lateral**2),
+            "action_reward": np.linalg.norm(action),
             "collision_reward": self.vehicle.crashed,
-            "high_speed_reward": high_speed_flag * scaled_speed,
-            "lane_change_reward": lane_change_flag * (action == 0) * scaled_x_position,
-            "distance_reward": distance_reward,
-            "staright_speed_reward": sum(  # Altruistic penalty
+            "on_road_reward": self.vehicle.on_road,
+            "staright_speed_reward": sum(  # 影响其他车辆速度
                 (vehicle.target_speed - vehicle.speed) / vehicle.target_speed
                 for vehicle in self.road.vehicles
                 if vehicle.lane_index == ("b", "c", 1)
                 and isinstance(vehicle, ControlledVehicle)
             ),
+            "lane_change_reward": lane_change_reward
+            * lane_change_flag
+            * scaled_x_position,
         }
 
     def _is_terminated(self) -> bool:
@@ -123,7 +166,10 @@ class MergeEnv(AbstractEnv):
         # print("over" + str(self.vehicle.position[0] > 370))
         # print("over" + str(bool(self.vehicle.position[0] > 460)))
         # return self.vehicle.crashed or bool(self.vehicle.position[0] > 370)
-        return self.vehicle.crashed or bool(self.vehicle.position[0] > 310)  # 310
+        if self.vehicle.on_road:
+            return self.vehicle.crashed or bool(self.vehicle.position[0] > 310)  # 310
+        else:
+            return True
 
     def _is_truncated(self) -> bool:
         return False
@@ -131,6 +177,7 @@ class MergeEnv(AbstractEnv):
     def _reset(self) -> None:
         self._make_road()
         self._make_vehicles()
+        self.delay_lane = self.vehicle.lane_index
 
     def _make_road(self) -> None:
         """
@@ -206,9 +253,13 @@ class MergeEnv(AbstractEnv):
 
         :return: the ego-vehicle
         """
+        rng = self.np_random
         road = self.road
-        ego_vehicle = self.action_type.vehicle_class(
-            road, road.network.get_lane(("j", "k", 0)).position(130, 0), speed=30
+        # ego_vehicle = self.action_type.vehicle_class(
+        #     road, road.network.get_lane(("j", "k", 0)).position(130, 0), speed=30
+        # )
+        ego_vehicle = self.action_type.vehicle_class.make_on_lane(
+            road, ("j", "k", 0), speed=None, longitudinal=130
         )
         # ego_vehicle = self.action_type.vehicle_class(
         #     road, road.network.get_lane(("j", "k", 0)).position(100, 0), speed=30

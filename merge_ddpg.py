@@ -1,12 +1,13 @@
 import gymnasium as gym
 from gymnasium.wrappers import RecordVideo
+
+import highway_env
+from RL.DQN import DQN
+from datetime import datetime
+from pathlib import Path
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import SubprocVecEnv
-import sys
-
-sys.path.append("D:\python\Highway_merge")
-import highway_env
 
 highway_env.register_highway_envs()
 
@@ -15,7 +16,7 @@ TRAIN = False
 if __name__ == "__main__":
     n_cpu = 6
     batch_size = 64
-    env = make_vec_env("racetrack-v0", n_envs=n_cpu, vec_env_cls=SubprocVecEnv)
+    env = make_vec_env("merge-v1", n_envs=n_cpu, vec_env_cls=SubprocVecEnv)
     model = PPO(
         "MlpPolicy",
         env,
@@ -24,25 +25,25 @@ if __name__ == "__main__":
         batch_size=batch_size,
         n_epochs=10,
         learning_rate=5e-4,
-        gamma=0.9,
+        gamma=0.8,
         verbose=2,
-        tensorboard_log="racetrack_ppo/",
+        tensorboard_log="merge_ppo/",
     )
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(2e3))
-        model.save("racetrack_ppo/model")
+        model.learn(total_timesteps=int(5e4))
+        model.save("merge_ppo/model")
         del model
 
     # Run the algorithm
-    model = PPO.load("racetrack_ppo/model", env=env)
+    model = PPO.load("merge_ppo/model", env=env)
 
-    env = gym.make("racetrack-v0", render_mode="rgb_array")
+    env = gym.make("merge-v1", render_mode="rgb_array")
     env = RecordVideo(
-        env, video_folder="racetrack_ppo/videos", episode_trigger=lambda e: True
+        env, video_folder="merge_ppo/videos", episode_trigger=lambda e: True
     )
     env.unwrapped.set_record_video_wrapper(env)
-
+    env.configure({"simulation_frequency": 5})
     for video in range(10):
         done = truncated = False
         obs, info = env.reset()

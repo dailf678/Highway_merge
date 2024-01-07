@@ -91,8 +91,8 @@ class AbstractEnv(gym.Env):
         return {
             "observation": {"type": "Kinematics"},
             "action": {"type": "DiscreteMetaAction"},
-            "simulation_frequency": 15,  # [Hz]
-            "policy_frequency": 1,  # [Hz]
+            "simulation_frequency": 15,  # 15[Hz]
+            "policy_frequency": 1,  # 1[Hz]
             "other_vehicles_type": "highway_env.vehicle.behavior.IDMVehicle",
             "screen_width": 600,  # [px]
             "screen_height": 150,  # [px]
