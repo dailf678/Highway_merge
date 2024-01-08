@@ -150,11 +150,21 @@ class TimeToCollisionObservation(ObservationType):
         return clamped_grid.astype(np.float32)
 
 
+def Distance_brake(speed, a):
+    return speed**2 / (2 * a)
+
+
+def Distance_free(speed, t):
+    return speed * t
+
+
 class KinematicObservation(ObservationType):
 
     """Observe the kinematics of nearby vehicles."""
 
-    FEATURES: List[str] = ["presence", "x", "y", "vx", "vy"]
+    # 观察附近车辆的运动学信息,可添加自身需要的信息
+    # FEATURES: List[str] = ["presence", "x", "y", "vx", "vy", "safe_rate"]
+    FEATURES: List[str] = ["presence", "x", "y", "vx", "vy", "safe_rate"]
 
     def __init__(
         self,
@@ -255,8 +265,43 @@ class KinematicObservation(ObservationType):
             )
             df = pd.concat([df, vehicles_df], ignore_index=True)
 
-        df = df[self.features]
+        df = df[self.features[0:5]]
         # 将df中除了第一行的数据外，其他数据按照第二列数据进行排序
+        df = pd.concat(
+            [
+                df.iloc[0:1],
+                df.iloc[1:].sort_values(by=self.features[1], ascending=False),
+            ]
+        )
+        # 在df中添加一列,为safe_rate
+        df["safe_rate"] = 0
+        fuzzy_df = df.iloc[1:]
+        # 遍历fuzzy_df中的每一行
+        for i, row in fuzzy_df.iterrows():
+            if i + 1 < fuzzy_df.shape[0]:
+                # get current row
+                x_lead = row["x"]
+                vx_lead = row["vx"]
+                # get next row
+                x_lag = fuzzy_df.iloc[i + 1]["x"]
+                vx_lag = fuzzy_df.iloc[i + 1]["vx"]
+                d_brake_ego = Distance_brake(self.observer_vehicle.speed, 5.0)
+                d_free_ego = Distance_free(self.observer_vehicle.speed, 0.3)
+                d_brake_lead = Distance_brake(vx_lead, 5.0)
+                d_free_lag = Distance_free(vx_lag, 0.3)
+                d_brake_lag = Distance_brake(vx_lag, 5.0)
+                d_safe_lead = (d_free_ego + d_brake_ego) - d_brake_lead
+                d_safe_lag = (d_free_lag + d_brake_lag) - d_brake_ego
+                g_safe = max(d_safe_lead, d_safe_lag)
+                g_real = x_lead - x_lag
+                if g_real > g_safe:
+                    safe_rate = 1
+                else:
+                    safe_rate = -1
+                # 将safe_rate添加到df中
+                df.loc[i, "safe_rate"] = safe_rate
+            else:
+                df.loc[i, "safe_rate"] = 1
 
         # Normalize and clip
         if self.normalize:

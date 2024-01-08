@@ -11,8 +11,8 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 
 highway_env.register_highway_envs()
 
-# TRAIN = True
-TRAIN = False
+TRAIN = True
+# TRAIN = False
 if __name__ == "__main__":
     n_cpu = 6
     batch_size = 64
@@ -25,13 +25,13 @@ if __name__ == "__main__":
         batch_size=batch_size,
         n_epochs=10,
         learning_rate=5e-4,
-        gamma=0.8,
+        gamma=0.9,
         verbose=2,
         tensorboard_log="merge_ppo/",
     )
     # Train the model
     if TRAIN:
-        model.learn(total_timesteps=int(5e4))
+        model.learn(total_timesteps=int(2e5))
         model.save("merge_ppo/model")
         del model
 
@@ -44,6 +44,8 @@ if __name__ == "__main__":
     )
     env.unwrapped.set_record_video_wrapper(env)
     env.configure({"simulation_frequency": 5})
+    ep_reward = 0
+    reward_list = []
     for video in range(10):
         done = truncated = False
         obs, info = env.reset()
@@ -53,6 +55,14 @@ if __name__ == "__main__":
             print(action)
             # Get reward
             obs, reward, done, truncated, info = env.step(action)
+            print(info)
             # Render
+            ep_reward += reward
             env.render()
+        reward_list.append(ep_reward)
+        ep_reward = 0
+    # Save reward_list
+    import numpy as np
+
+    np.save("merge_ppo/return_list1.npy", reward_list)
     env.close()
