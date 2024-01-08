@@ -158,6 +158,72 @@ def Distance_free(speed, t):
     return speed * t
 
 
+def M1(g):
+    if g > 0:
+        return 0
+    elif g < -5:
+        return 1
+    else:
+        return -0.2 * g
+
+
+def M2(g):
+    return 0 if abs(g) > 5 else 1 - 0.2 * abs(5)
+
+
+def M3(g):
+    if g < 0:
+        return 0
+    elif g > 5:
+        return 1
+    else:
+        return 0.2 * g
+
+
+def N1(x):
+    if x < 10:
+        return 1
+    elif x > 20:
+        return 0
+    else:
+        return 2 - 0.1 * x
+
+
+def N2(x):
+    return 0 if x < 10 or x > 30 else 1 - abs(x - 20) / 10
+
+
+def N3(x):
+    if x < 20:
+        return 0
+    elif x > 30:
+        return 1
+    else:
+        return -2 + 0.1 * x
+
+
+def defuzzification(delta_g, delta_x):
+    result = 0
+    L = 0.25
+    M = 0.5
+    H = 0.75
+    result += M1(delta_g) * N1(delta_x) * L
+    result += M1(delta_g) * N2(delta_x) * L
+    result += M1(delta_g) * N3(delta_x) * L
+    result += M2(delta_g) * N1(delta_x) * H
+    result += M2(delta_g) * N2(delta_x) * M
+    result += M2(delta_g) * N3(delta_x) * L
+    result += M3(delta_g) * N1(delta_x) * H
+    result += M3(delta_g) * N2(delta_x) * H
+    result += M3(delta_g) * N3(delta_x) * L
+    if result <= L:
+        return L
+    elif result >= H:
+        return H
+    else:
+        return M
+
+
 class KinematicObservation(ObservationType):
 
     """Observe the kinematics of nearby vehicles."""
@@ -274,8 +340,9 @@ class KinematicObservation(ObservationType):
             ]
         )
         # 在df中添加一列,为safe_rate
-        df["safe_rate"] = 0
+        df["safe_rate"] = 0.0
         fuzzy_df = df.iloc[1:]
+        x_ego = self.observer_vehicle.position[0]
         # 遍历fuzzy_df中的每一行
         for i, row in fuzzy_df.iterrows():
             if i + 1 < fuzzy_df.shape[0]:
@@ -292,16 +359,14 @@ class KinematicObservation(ObservationType):
                 d_brake_lag = Distance_brake(vx_lag, 5.0)
                 d_safe_lead = (d_free_ego + d_brake_ego) - d_brake_lead
                 d_safe_lag = (d_free_lag + d_brake_lag) - d_brake_ego
-                g_safe = max(d_safe_lead, d_safe_lag)
+                g_safe = max(d_safe_lead, d_safe_lag) + 5
                 g_real = x_lead - x_lag
-                if g_real > g_safe:
-                    safe_rate = 1
-                else:
-                    safe_rate = -1
-                # 将safe_rate添加到df中
-                df.loc[i, "safe_rate"] = safe_rate
+                delta_g = g_real - g_safe
+                x_gap = (x_lead + x_lag) / 2
+                delta_x = abs(x_gap - x_ego)
+                df.loc[i, "safe_rate"] = defuzzification(delta_g, delta_x)
             else:
-                df.loc[i, "safe_rate"] = 1
+                df.loc[i, "safe_rate"] = 0.75
 
         # Normalize and clip
         if self.normalize:

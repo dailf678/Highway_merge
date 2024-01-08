@@ -35,7 +35,7 @@ class MergeEnv_v1(AbstractEnv):
                 "policy_frequency": 5,
                 "collision_reward": -1,
                 # "lane_change_reward": 1,
-                "lane_change_reward": 3,
+                "lane_change_reward": 2,
                 "reward_speed_range": [20, 30],
                 # "staright_speed_reward": 0.2,
                 "staright_speed_reward": 0.0,
