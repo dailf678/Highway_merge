@@ -20,7 +20,7 @@ if __name__ == "__main__":
     model = PPO(
         "MlpPolicy",
         env,
-        policy_kwargs=dict(net_arch=[dict(pi=[256, 256], vf=[256, 256])]),
+        policy_kwargs=dict(net_arch=dict(pi=[256, 256], vf=[256, 256])),
         n_steps=batch_size * 12 // n_cpu,
         batch_size=batch_size,
         n_epochs=10,
@@ -29,6 +29,7 @@ if __name__ == "__main__":
         verbose=2,
         tensorboard_log="merge_ppo/",
     )
+    # model = PPO.load("merge_ppo/model", env=env)
     # Train the model
     if TRAIN:
         model.learn(total_timesteps=int(2e5))
@@ -55,7 +56,6 @@ if __name__ == "__main__":
             print(action)
             # Get reward
             obs, reward, done, truncated, info = env.step(action)
-            print(info)
             # Render
             ep_reward += reward
             env.render()

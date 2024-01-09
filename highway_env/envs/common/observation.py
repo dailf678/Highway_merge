@@ -228,9 +228,13 @@ class KinematicObservation(ObservationType):
 
     """Observe the kinematics of nearby vehicles."""
 
+    # safe_rate_flag = True
     # 观察附近车辆的运动学信息,可添加自身需要的信息
-    # FEATURES: List[str] = ["presence", "x", "y", "vx", "vy", "safe_rate"]
     FEATURES: List[str] = ["presence", "x", "y", "vx", "vy", "safe_rate"]
+    # if safe_rate_flag:
+    #     FEATURES: List[str] = ["presence", "x", "y", "vx", "vy", "safe_rate"]
+    # else:
+    #     FEATURES: List[str] = ["presence", "x", "y", "vx", "vy"]
 
     def __init__(
         self,
@@ -339,6 +343,7 @@ class KinematicObservation(ObservationType):
                 df.iloc[1:].sort_values(by=self.features[1], ascending=False),
             ]
         )
+        df.reset_index(inplace=True, drop=True)
         # 在df中添加一列,为safe_rate
         df["safe_rate"] = 0.0
         fuzzy_df = df.iloc[1:]
@@ -365,9 +370,9 @@ class KinematicObservation(ObservationType):
                 x_gap = (x_lead + x_lag) / 2
                 delta_x = abs(x_gap - x_ego)
                 df.loc[i, "safe_rate"] = defuzzification(delta_g, delta_x)
+                # df的第i+1行的safe_rate=0.75
             else:
                 df.loc[i, "safe_rate"] = 0.75
-
         # Normalize and clip
         if self.normalize:
             df = self.normalize_obs(df)

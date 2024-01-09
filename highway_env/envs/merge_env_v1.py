@@ -35,12 +35,12 @@ class MergeEnv_v1(AbstractEnv):
                 "policy_frequency": 5,
                 "collision_reward": -1,
                 # "lane_change_reward": 1,
-                "lane_change_reward": 2,
+                "lane_change_reward": 2.0,
                 "reward_speed_range": [20, 30],
                 # "staright_speed_reward": 0.2,
                 "staright_speed_reward": 0.0,
                 "distance_reward": 0.0,
-                "lane_centering_cost": 4,  #
+                "lane_centering_cost": 4.0,  #
                 # "lane_centering_reward": 0.8,
                 "lane_centering_reward": 1.2,
                 "action_reward": -0.2,
@@ -157,6 +157,14 @@ class MergeEnv_v1(AbstractEnv):
             action_flag = 1
         else:
             action_flag = -1
+        crashed_reward = 0
+        if self.vehicle.crashed:
+            if self.vehicle.position[0] > 310:
+                crashed_reward = 1
+            else:
+                crashed_reward = 0.5
+        else:
+            crashed_reward = 0
         return {
             "lane_centering_reward": 1
             / (1 + self.config["lane_centering_cost"] * lateral**2),
@@ -290,31 +298,21 @@ class MergeEnv_v1(AbstractEnv):
         #     speed += self.np_random.uniform(-1, 1)
         #     road.vehicles.append(other_vehicles_type(road, position, speed=speed))
 
-        for position, speed in [
-            (105, 20),
-            (90, 21),
-            (75, 20),
-            (60, 18),
-            (45, 16),
-            (130, 20),
-            (145, 20),
-            (160, 20),
-            # (175, 20),
-            # (190, 20),
-            (205, 23),
-            # (220, 25),
-        ]:
-            lane = road.network.get_lane(("a", "b", 1))
-            position = lane.position(position + self.np_random.uniform(-5, 5), 0)
-            speed += self.np_random.uniform(-1, 1)
-            road.vehicles.append(
-                other_vehicles_type(
-                    road, position, speed=speed, enable_lane_change=False
-                )
-            )
-
-        # for position, speed in [(0, 20), (20, 20), (40, 20), (60, 20)]:
-        #     lane = road.network.get_lane(("b", "c", 1))
+        # for position, speed in [
+        #     (105, 20),
+        #     (90, 21),
+        #     (75, 20),
+        #     (60, 18),
+        #     (45, 16),
+        #     (130, 20),
+        #     (145, 20),
+        #     (160, 20),
+        #     # (175, 20),
+        #     # (190, 20),
+        #     (205, 23),
+        #     # (220, 25),
+        # ]:
+        #     lane = road.network.get_lane(("a", "b", 1))
         #     position = lane.position(position + self.np_random.uniform(-5, 5), 0)
         #     speed += self.np_random.uniform(-1, 1)
         #     road.vehicles.append(
@@ -322,6 +320,19 @@ class MergeEnv_v1(AbstractEnv):
         #             road, position, speed=speed, enable_lane_change=False
         #         )
         #     )
+        # 随机获取一个8到12的整数
+        vehicle_nums = np.random.randint(8, 10)
+        # 0到200根据车辆数目等分
+        vehicle_position = np.linspace(20, 200, vehicle_nums)
+        for position in vehicle_position:
+            lane = road.network.get_lane(("a", "b", 1))
+            position = lane.position(position + np.random.uniform(-5, 5), 0)
+            speed = 20 + np.random.uniform(-5, 5)
+            road.vehicles.append(
+                other_vehicles_type(
+                    road, position, speed=speed, enable_lane_change=False
+                )
+            )
 
         # for position, speed in [(95, 10), (75, 10), (10, 10)]:
         #     lane = road.network.get_lane(("b", "c", 0))
